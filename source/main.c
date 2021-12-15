@@ -20,14 +20,17 @@
 //safe si transfer delay in between calls
 #define SI_TRANS_DELAY 50
 
-extern u8 gba_mb_gba[];
-extern u32 gba_mb_gba_size;
+// extern u8 gba_mb_gba[];
+// extern u32 gba_mb_gba_size;
+#include "gba_mb_gba.h" // thanks yuv422!! taken from https://github.com/yuv422/gba-link-cable-dumper/commit/ab7d43aaaebb978879ca6410820752a43023d1a6
 
 void printmain()
 {
 	printf("\x1b[2J");
 	printf("\x1b[37m");
-	printf("GBA Link Cable Dumper v1.6 by FIX94\n");
+	printf("==WARNING==: This software comes with NO WARRANTY WHATSOEVER. This software can make irreversible changes to data. Please use this software at your own risk. The author takes no responsibility for any damage caused by this application. Continue at your own risk, you have been warned.");
+	//this program should realisitcally not be dangerous to use but just in case someone is scared of deleting precious save data
+	printf("--BASED ON-- GBA Link Cable Dumper v1.6 by FIX94\n");
 	printf("Save Support based on SendSave by Chishm\n");
 	printf("GBA BIOS Dumper by Dark Fader\n \n");
 }
@@ -229,6 +232,8 @@ int main(int argc, char *argv[])
 		printmain();
 		fatalError("ERROR: Could not create dumps folder, make sure you have a supported device connected!");
 	}
+
+	//enum commandEnums {WAIT, DUMP_ROM, BACKUP_SAVE, RESTORE_SAVE, DELETE_SAVE};
 	int i;
 	while(1)
 	{
@@ -349,17 +354,17 @@ int main(int argc, char *argv[])
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
 						fixFName(savename+7); //fix name behind "/dumps/"
 						//let the user choose the option
-						printf("Press A to dump this game, it will take about %i minutes.\n",gbasize/1024/1024*3/2);
+						printf("Press A to ROM DUMP this game, it will take about %i minutes.\n",gbasize/1024/1024*3/2);
 						printf("Press B if you want to cancel dumping this game.\n");
 						if(savesize > 0)
 						{
-							printf("Press Y to backup this save file.\n");
-							printf("Press X to restore this save file.\n");
-							printf("Press Z to clear the save file on the GBA Cartridge.\n\n");
+							printf("Press Y to BACKUP this save file.\n");
+							printf("Press X to RESTORE this save file. (OVERWRITES AND DELETES EXISTING SAVE ON THE CART.)\n");
+							printf("Press Z to DELETE the save file. (WILL ERASE ALL SAVE DATA ON THE GBA CARTRIDGE!)\n\n");
 						}
 						else
 							printf("\n");
-						int command = 0;
+						int command = WAIT;
 						while(1)
 						{
 							PAD_ScanPads();
@@ -369,7 +374,7 @@ int main(int argc, char *argv[])
 								endproc();
 							else if(btns&PAD_BUTTON_A)
 							{
-								command = 1;
+								command = DUMP_ROM;
 								break;
 							}
 							else if(btns&PAD_BUTTON_B)
@@ -378,42 +383,42 @@ int main(int argc, char *argv[])
 							{
 								if(btns&PAD_BUTTON_Y)
 								{
-									command = 2;
+									command = BACKUP_SAVE;
 									break;
 								}
 								else if(btns&PAD_BUTTON_X)
 								{
-									command = 3;
+									command = RESTORE_SAVE;
 									break;
 								}
 								else if(btns&PAD_TRIGGER_Z)
 								{
-									command = 4;
+									command = DELETE_SAVE;
 									break;
 								}
 							}
 						}
-						if(command == 1)
+						if(command == DUMP_ROM)
 						{
 							FILE *f = fopen(gamename,"rb");
 							if(f)
 							{
 								fclose(f);
-								command = 0;
+								command = WAIT;
 								warnError("ERROR: Game already dumped!\n");
 							}
 						}
-						else if(command == 2)
+						else if(command == BACKUP_SAVE)
 						{
 							FILE *f = fopen(savename,"rb");
 							if(f)
 							{
 								fclose(f);
-								command = 0;
+								command = WAIT;
 								warnError("ERROR: Save already backed up!\n");
 							}
 						}
-						else if(command == 3)
+						else if(command == RESTORE_SAVE)
 						{
 							size_t readsize = 0;
 							FILE *f = fopen(savename,"rb");
@@ -423,7 +428,7 @@ int main(int argc, char *argv[])
 								readsize = ftell(f);
 								if(readsize != savesize)
 								{
-									command = 0;
+									command = WAIT;
 									warnError("ERROR: Save has the wrong size, aborting restore!\n");
 								}
 								else
@@ -435,16 +440,16 @@ int main(int argc, char *argv[])
 							}
 							else
 							{
-								command = 0;
+								command = WAIT;
 								warnError("ERROR: No Save to restore!\n");
 							}
 						}
 						send(command);
 						//let gba prepare
 						sleep(1);
-						if(command == 0)
+						if(command == WAIT)
 							continue;
-						else if(command == 1)
+						else if(command == DUMP_ROM)
 						{
 							//create base file with size
 							printf("Preparing file...\n");
@@ -473,7 +478,7 @@ int main(int argc, char *argv[])
 							printf("Game dumped!\n");
 							sleep(5);
 						}
-						else if(command == 2)
+						else if(command == BACKUP_SAVE)
 						{
 							//create base file with size
 							printf("Preparing file...\n");
@@ -496,12 +501,12 @@ int main(int argc, char *argv[])
 							printf("Save backed up!\n");
 							sleep(5);
 						}
-						else if(command == 3 || command == 4)
+						else if(command == RESTORE_SAVE || command == DELETE_SAVE)
 						{
 							u32 readval = 0;
 							while(readval != savesize)
 								readval = __builtin_bswap32(recv());
-							if(command == 3)
+							if(command == RESTORE_SAVE)
 							{
 								printf("Sending save\n");
 								VIDEO_WaitVSync();
@@ -511,7 +516,7 @@ int main(int argc, char *argv[])
 							printf("Waiting for GBA\n");
 							while(recv() != 0)
 								VIDEO_WaitVSync();
-							printf(command == 3 ? "Save restored!\n" : "Save cleared!\n");
+							printf(command == RESTORE_SAVE ? "Save restored!\n" : "Save cleared!\n"); //bloody hell, change this to something less clever and more readable
 							send(0);
 							sleep(5);
 						}
