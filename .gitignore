@@ -1,0 +1,7 @@
+gba/gba_mb.elf
+gba/gba_mb.gba
+gba/build/gba_mb.elf.map
+gba/build/libSave.d
+gba/build/main.d
+gba/build/libSave.o
+gba/build/main.o
