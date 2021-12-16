@@ -28,11 +28,13 @@ void printmain()
 {
 	printf("\x1b[2J");
 	printf("\x1b[37m");
-	printf("==WARNING==: This software comes with NO WARRANTY WHATSOEVER. This software can make irreversible changes to data. Please use this software at your own risk. The author takes no responsibility for any damage caused by this application. Continue at your own risk, you have been warned.");
+	printf("==WARNING==: This software comes with NO WARRANTY WHATSOEVER. This software can make irreversible changes to data. Please use this software at your own risk. The author takes no responsibility for any damage that may be caused. \nContinue at your own risk, you have been warned.\n\n");
 	//this program should realisitcally not be dangerous to use but just in case someone is scared of deleting precious save data
-	printf("--BASED ON-- GBA Link Cable Dumper v1.6 by FIX94\n");
+	printf("--BASED ON--\n");
+	printf("GBA Link Cable Dumper v1.6 by FIX94\n"); 
 	printf("Save Support based on SendSave by Chishm\n");
 	printf("GBA BIOS Dumper by Dark Fader\n \n");
+	printf("Use a GameCube Controller in Port 1\n \n");
 }
 
 u8 *resbuf,*cmdbuf;
@@ -156,8 +158,8 @@ u32 recv()
 }
 void send(u32 msg)
 {
-	cmdbuf[0]=0x15;cmdbuf[1]=(msg>>0)&0xFF;cmdbuf[2]=(msg>>8)&0xFF;
-	cmdbuf[3]=(msg>>16)&0xFF;cmdbuf[4]=(msg>>24)&0xFF;
+	cmdbuf[0]=0x15; cmdbuf[1]=(msg>>0)&0xFF; cmdbuf[2]=(msg>>8)&0xFF;
+	cmdbuf[3]=(msg>>16)&0xFF; cmdbuf[4]=(msg>>24)&0xFF;
 	transval = 0;
 	resbuf[0] = 0;
 	SI_Transfer(1,cmdbuf,5,resbuf,1,transcb,SI_TRANS_DELAY);
@@ -233,7 +235,7 @@ int main(int argc, char *argv[])
 		fatalError("ERROR: Could not create dumps folder, make sure you have a supported device connected!");
 	}
 
-	enum commandEnums {WAIT, DUMP_ROM, BACKUP_SAVE, RESTORE_SAVE, DELETE_SAVE};
+	enum commandEnums {WAIT, DUMP_ROM, BACKUP_SAVE, RESTORE_SAVE, DELETE_SAVE}; // i think changing the order of these enums are very very very dangerous, wait should equal zero, dump_rom is one, etc
 	int i;
 	while(1)
 	{
@@ -359,12 +361,13 @@ int main(int argc, char *argv[])
 						if(savesize > 0)
 						{
 							printf("Press Y to BACKUP this save file.\n");
-							printf("Press X to RESTORE this save file. (OVERWRITES AND DELETES EXISTING SAVE ON THE CART.)\n");
-							printf("Press Z to DELETE the save file. (WILL ERASE ALL SAVE DATA ON THE GBA CARTRIDGE!)\n\n");
+							printf("Press X to RESTORE this save file. (OVERWRITES EXISTING SAVE ON THE CART!)\n");
+							printf("Press Z to DELETE the save file. (ERASES ALL SAVE DATA ON THE CART!)\n\n");
 						}
 						else
 							printf("\n");
-						int command = WAIT;
+						int command = WAIT; //command = 0;
+						// checks what command to do based on input
 						while(1)
 						{
 							PAD_ScanPads();
@@ -374,7 +377,7 @@ int main(int argc, char *argv[])
 								endproc();
 							else if(btns&PAD_BUTTON_A)
 							{
-								command = DUMP_ROM;
+								command = DUMP_ROM; //command = 1;
 								break;
 							}
 							else if(btns&PAD_BUTTON_B)
@@ -388,16 +391,64 @@ int main(int argc, char *argv[])
 								}
 								else if(btns&PAD_BUTTON_X)
 								{
-									command = RESTORE_SAVE;
+									// command = RESTORE_SAVE;
+									// break;
+									warnError("WARNING! Hands off the buttons for one sec!!!\n");
+									warnError("There is (probably) a different save file that is already on the GBA \nCartridge! \n");
+									warnError("If you RESTORE a back up now the save data on the GBA Cartridge will be \ncompletely written over!\n");
+									warnError("Are you absolutely sure you want to OVERWRITE the save file?\n");
+									warnError("!!!DANGER!!! Press Z to OVERWRITE this save file. !!!DANGER!!!");
+									printf("Press B if you want to cancel restoring a save file.\n");
+									warnError("\n");
+									u32 btns;
+									do {
+										PAD_ScanPads();
+										VIDEO_WaitVSync();
+										btns = PAD_ButtonsDown(0);
+									} while (!(btns&(PAD_TRIGGER_Z|PAD_BUTTON_B)));
+									if (btns & PAD_BUTTON_B) {
+										command = WAIT;
+										break;
+									}
+									else if(btns&PAD_TRIGGER_Z) {
+										warnError("Getting ready to OVERWRITE save...\n");
+										command = RESTORE_SAVE;
+										warnError("Starting to OVERWRITE save.\n");
+										break;
+									}
 									break;
 								}
 								else if(btns&PAD_TRIGGER_Z)
 								{
-									command = DELETE_SAVE;
+									warnError("WARNING! Hands off the buttons for one sec!!!\n");
+									warnError("There is (probably) a different save file that is already on the GBA \nCartridge!\n");
+									warnError("If you DELETE now the save data on the GBA Cartridge will be entirely lost!\n");
+									warnError("Are you ABSOLUTELY sure you want to DELETE the save file?\n");
+									warnError("!!!DANGER!!! Press Z to DELETE this save file. !!!DANGER!!!");
+									printf("Press B if you want to cancel deleting this save file.\n");
+									u32 btns;
+									do {
+										PAD_ScanPads();
+										VIDEO_WaitVSync();
+										btns = PAD_ButtonsDown(0);
+									} while (!(btns&(PAD_TRIGGER_Z|PAD_BUTTON_B)));
+									if (btns & PAD_BUTTON_B) {
+										command = WAIT;
+										break;
+									}
+									else if(btns&PAD_TRIGGER_Z) {
+										warnError("Getting ready to DELETE save...");
+										warnError("\n");
+										command = DELETE_SAVE;
+										warnError("Starting to DELETE save.\n");
+										break;
+									}
 									break;
 								}
 							}
 						}
+
+						// error checks each command to make sure its possible
 						if(command == DUMP_ROM)
 						{
 							FILE *f = fopen(gamename,"rb");
@@ -444,9 +495,13 @@ int main(int argc, char *argv[])
 								warnError("ERROR: No Save to restore!\n");
 							}
 						}
+						//sends command
 						send(command);
 						//let gba prepare
 						sleep(1);
+
+						//executes command 
+						// TODO: inside the conditional blocks, consider wrapping it into a function instead of having the logic here
 						if(command == WAIT)
 							continue;
 						else if(command == DUMP_ROM)
