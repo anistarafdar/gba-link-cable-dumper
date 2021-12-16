@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
 		fatalError("ERROR: Could not create dumps folder, make sure you have a supported device connected!");
 	}
 
-	//enum commandEnums {WAIT, DUMP_ROM, BACKUP_SAVE, RESTORE_SAVE, DELETE_SAVE};
+	enum commandEnums {WAIT, DUMP_ROM, BACKUP_SAVE, RESTORE_SAVE, DELETE_SAVE};
 	int i;
 	while(1)
 	{

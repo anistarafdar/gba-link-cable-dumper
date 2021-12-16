@@ -5,3 +5,14 @@ gba/build/libSave.d
 gba/build/main.d
 gba/build/libSave.o
 gba/build/main.o
+build/gba_mb_gba.h
+data/gba_mb.gba
+build/main.d
+build/gba_mb.gba.o
+source/main.c
+linkcabledump_gc.dol
+linkcabledump_gc.elf
+linkcabledump_wii.dol
+linkcabledump_wii.elf
+build/linkcabledump_wii.elf.map
+build/main.o
