@@ -28,13 +28,15 @@ void printmain()
 {
 	printf("\x1b[2J");
 	printf("\x1b[37m");
-	printf("==WARNING==: This software comes with NO WARRANTY WHATSOEVER. This software can make irreversible changes to data. Please use this software at your own risk. The author takes no responsibility for any damage that may be caused. \nContinue at your own risk, you have been warned.\n\n");
+	printf("==WARNING==: This software comes with NO WARRANTY WHATSOEVER. This software can make irreversible changes to data. Please use this software at your own risk. The author takes no responsibility for any damage that may be caused.\n\n");
+	printf("Press START to exit or continue at your own risk, you have been warned.\n\n");
 	//this program should realisitcally not be dangerous to use but just in case someone is scared of deleting precious save data
 	printf("--BASED ON--\n");
 	printf("GBA Link Cable Dumper v1.6 by FIX94\n"); 
 	printf("Save Support based on SendSave by Chishm\n");
 	printf("GBA BIOS Dumper by Dark Fader\n \n");
-	printf("Use a GameCube Controller in Port 1\n \n");
+	printf("Use a GameCube Controller in Port 1\n");
+	printf("Boot your GBA and hold START+SELECT on startup if a cart is already inserted\n");
 }
 
 u8 *resbuf,*cmdbuf;
@@ -75,6 +77,7 @@ void endproc()
 	VIDEO_WaitVSync();
 	exit(0);
 }
+
 void fixFName(char *str)
 {
 	u8 i = 0;
@@ -100,6 +103,49 @@ void fixFName(char *str)
 		}
 	}
 }
+
+//https://github.com/suloku/gcmm/blob/master/source/raw.c from line 203, thank you gcmm!
+//output is 29 char long
+void time2name(char *name)
+{
+	int month, day, year, hour, min, sec;
+	month = day = year = hour = min = sec = 0;
+	char monthstr[12][4] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+	                         "Aug", "Sep", "Oct", "Nov", "Dec"
+	                       };
+
+	// Taken from void SecondsToDate(int seconds, int *pYear, int *pMonth, int *pDay)
+	// Calculates year month and day since jan 1, 1970 from (t) seconds
+	// Reference: Fliegel, H. F. and van Flandern, T. C. (1968).
+	// Communications of the ACM, Vol. 11, No. 10 (October, 1968).
+	// Original code in Fortran
+		int I, J, K, L, N;
+		
+		u32 t = time(NULL);
+
+		L = t / 86400 + 2509157;
+		N = 4 * L / 146097;
+		L = L - (146097 * N + 3) / 4;
+		I = 4000 * (L + 1) / 1461001;
+		L = L - 1461 * I / 4 + 31;
+		J = 80 * L / 2447;
+		K = L - 2447 * J / 80;
+		L = J / 11;
+		J = J + 2 - 12 * L;
+		I = 100 * (N - 49) + I + L;
+		year = I;
+		month = J;
+		day = K;
+		
+		sec = t % 60;
+		t /= 60;
+		min = t % 60;
+		t /= 60;
+		hour = t % 24;
+	
+	sprintf(name, "%04d_%02d%s_%02d_%02d-%02d-%02d", year, month, monthstr[month-1], day, hour, min, sec);
+}
+
 unsigned int calckey(unsigned int size)
 {
 	unsigned int ret = 0;
@@ -133,6 +179,7 @@ unsigned int calckey(unsigned int size)
 	}
 	return ret;
 }
+
 void doreset()
 {
 	cmdbuf[0] = 0xFF; //reset
@@ -140,6 +187,7 @@ void doreset()
 	SI_Transfer(1,cmdbuf,1,resbuf,3,transcb,SI_TRANS_DELAY);
 	while(transval == 0) ;
 }
+
 void getstatus()
 {
 	cmdbuf[0] = 0; //status
@@ -147,6 +195,7 @@ void getstatus()
 	SI_Transfer(1,cmdbuf,1,resbuf,3,transcb,SI_TRANS_DELAY);
 	while(transval == 0) ;
 }
+
 u32 recv()
 {
 	memset(resbuf,0,32);
@@ -156,6 +205,7 @@ u32 recv()
 	while(transval == 0) ;
 	return *(vu32*)resbuf;
 }
+
 void send(u32 msg)
 {
 	cmdbuf[0]=0x15; cmdbuf[1]=(msg>>0)&0xFF; cmdbuf[2]=(msg>>8)&0xFF;
@@ -165,6 +215,7 @@ void send(u32 msg)
 	SI_Transfer(1,cmdbuf,5,resbuf,1,transcb,SI_TRANS_DELAY);
 	while(transval == 0) ;
 }
+
 bool dirExists(const char *path)
 {
 	DIR *dir;
@@ -176,6 +227,7 @@ bool dirExists(const char *path)
 	}
 	return false;
 }
+
 void createFile(const char *path, size_t size)
 {
 	int fd = open(path, O_WRONLY|O_CREAT);
@@ -185,6 +237,7 @@ void createFile(const char *path, size_t size)
 		close(fd);
 	}
 }
+
 void warnError(char *msg)
 {
 	puts(msg);
@@ -192,6 +245,7 @@ void warnError(char *msg)
 	VIDEO_WaitVSync();
 	sleep(2);
 }
+
 void fatalError(char *msg)
 {
 	puts(msg);
@@ -200,6 +254,7 @@ void fatalError(char *msg)
 	sleep(5);
 	exit(0);
 }
+
 int main(int argc, char *argv[]) 
 {
 	void *xfb = NULL;
@@ -334,6 +389,8 @@ int main(int argc, char *argv[])
 							warnError("ERROR: No (Valid) GBA Card inserted!\n");
 							continue;
 						}
+
+						// some of the sprintf statments do the same things, so refactoring to only calculate certain strings once could be done down the line
 						//get rom header
 						for(i = 0; i < 0xC0; i+=4)
 							*(vu32*)(testdump+i) = recv();
@@ -346,14 +403,20 @@ int main(int argc, char *argv[])
 							printf("Save Size: %02.02f KB\n \n",((float)(savesize))/1024.f);
 						else
 							printf("No Save File\n \n");
+						printf("To restore a save, rename your file and place it on your SD card like this:\n\n\'SD:/dumps/%.12s [%.4s%.2s].sav\'\n\n",
+							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
+						printf("Be sure to backup anything important before you overwrite it!\n\n");
+
 						//generate file paths
 						char gamename[64];
 						sprintf(gamename,"/dumps/%.12s [%.4s%.2s].gba",
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
 						fixFName(gamename+7); //fix name behind "/dumps/"
 						char savename[64];
-						sprintf(savename,"/dumps/%.12s [%.4s%.2s].sav",
-							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
+						char datename[29];
+						time2name(datename);
+						sprintf(savename,"/dumps/%.12s [%.4s%.2s] - %s.sav",
+							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0),datename);
 						fixFName(savename+7); //fix name behind "/dumps/"
 						//let the user choose the option
 						printf("Press A to ROM DUMP this game, it will take about %i minutes.\n",gbasize/1024/1024*3/2);
@@ -553,7 +616,7 @@ int main(int argc, char *argv[])
 							printf("Writing save...\n");
 							fwrite(testdump,savesize,1,f);
 							fclose(f);
-							printf("Save backed up!\n");
+							printf("Backed up to \'%s\'!\n", savename);
 							sleep(5);
 						}
 						else if(command == RESTORE_SAVE || command == DELETE_SAVE)
