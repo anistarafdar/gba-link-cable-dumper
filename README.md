@@ -1,4 +1,4 @@
-# (a newer) GBA Link Cable Dumper
+# (newer) GBA Link Cable Dumper
 A GC and Wii Homebrew App to get GBA BIOS, ROMs and saves via the GC GBA Link Cable.
 
 [Original program by FIX94](https://github.com/FIX94/gba-link-cable-dumper/)
